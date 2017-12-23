@@ -1,0 +1,21 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+
+
+[dev-packages]
+
+jedi = "==0.10.2"
+"flake8" = "*"
+pydocstyle = "*"
+pytest = "*"
+sure = "*"
+coverage = "*"
+pytest-cov = "*"
+
+
+[packages]
+
+tabula-py = "*"
+click = "*"
