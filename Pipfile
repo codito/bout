@@ -6,13 +6,11 @@ verify_ssl = true
 
 [dev-packages]
 
-jedi = "==0.10.2"
 "flake8" = "*"
-pydocstyle = "*"
+"flake8-docstrings" = "*"
 pytest = "*"
-sure = "*"
-coverage = "*"
 pytest-cov = "*"
+pytest-mock = "*"
 
 
 [packages]

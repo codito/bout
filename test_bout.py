@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """Tests for bout."""
+import logging
 import pytest
-from sure import expect
+from click.testing import CliRunner
 
 import bout
 
@@ -16,29 +17,33 @@ def row():
 
 
 @pytest.fixture
-def icici_data():
+def icici_data_row():
     """Build a cleaned up row of icici account data."""
-    return {0: "5", 1: "08/07/2017", 2: "10/07/2017", 3: "-", 4:
-            "SomeDescription", 5: "20000.0", 6:
-            "0.0", 7: "27296.69"}
+    data = ["5", "08/07/2017", "10/07/2017", "-", "SomeDescription", "20000.0",
+            "0.0", "27296.69"]
+    r = row()
+    r["data"].append([_get_cell(x) for x in data])
+    return r
 
 
 @pytest.fixture
-def icicicc_data():
+def icicicc_data_row():
     """Build a cleaned up row of icici credit card transaction."""
-    return {0: "14/07/2017", 1: "74143617199000258114409", 2:
-            "Some\rDescription", 3: "414", 4: "", 5: "", 6: "20,724.06"}
+    data = ["14/07/2017", "74143617199000258114409",
+            "Some\rDescription", "414", "", "", "20,724.06"]
+    r = row()
+    r["data"].append([_get_cell(x) for x in data])
+    return r
 
 
 def _get_cell(text):
-    return {"top": 3.8, "left": 2.2, "width": 5.8,
-            "height": 6.6, "text": text}
+    return {"top": 3.8, "left": 2.2, "width": 5.8, "height": 6.6, "text": text}
 
 
 def test_clean_ignores_zero_row_data(row):
-    r = list(bout.clean(row, "icici"))
+    r = bout.clean(row)
 
-    expect(r).to.have.length_of(0)
+    assert len(r) == 0
 
 
 def test_clean_ignores_zero_cell_data(row):
@@ -46,31 +51,30 @@ def test_clean_ignores_zero_cell_data(row):
     cell["width"] = 0.0
     row["data"].append([cell, _get_cell("c2")])
 
-    r = list(bout.clean(row, "icici"))
+    r = bout.clean(row)
 
-    expect(r).to.have.length_of(1)
-    expect(r).to.eql([{1: "c2"}])
+    assert r == [["c2"]]
 
 
-def test_clean_stream_merge_cell_data_zero_cell(row):
+def test_clean_stream_not_merge_cell_data_empty_first_line(row):
     cell = _get_cell("")
     cell["width"] = 0.0
     row["data"].append([cell, _get_cell("c2")])
     row["data"].append([_get_cell("cc2"), _get_cell("c4")])
 
-    r = list(bout.clean(row, "icici"))
+    r = bout.clean(row)
 
-    expect(r).to.have.length_of(1)
-    expect(r).to.eql([{0: "cc2", 1: "c2c4"}])
+    assert r == [["cc2", "c2c4"]]
 
 
 def test_clean_stream_merge_cell_data(row):
+    # First line doesn't have empty text, c1 and c will be merged
     row["data"].append([_get_cell("c1"), _get_cell("c2")])
-    row["data"].append([_get_cell(""), _get_cell("c4")])
+    row["data"].append([_get_cell("c"), _get_cell("c4")])
 
-    r = list(bout.clean(row, "icici"))
+    r = bout.clean(row)
 
-    expect(r).to.eql([{0: "c1", 1: "c2c4"}])
+    assert r == [["c1c", "c2c4"]]
 
 
 def test_clean_lattice_emits_multiple_lines(row):
@@ -78,32 +82,65 @@ def test_clean_lattice_emits_multiple_lines(row):
     row["data"].append([_get_cell("c1"), _get_cell("c2")])
     row["data"].append([_get_cell(""), _get_cell("c4")])
 
-    r = list(bout.clean(row, "icicicc"))
+    r = bout.clean(row)
 
-    expect(r).to.eql([{0: "c1", 1: "c2"}, {0: "", 1: "c4"}])
-
-
-def test_qif_for_icici(icici_data):
-    q = bout.to_qif(icici_data, "icici",
-                    bout._transform_credits_on_credit_card)
-
-    expect(q).to.eql("D10/07/2017\nN-\nMSomeDescription\nT-20000.0\nT0.0"
-                     "\n^\n\n")
+    assert r == [["c1", "c2"], ["", "c4"]]
 
 
-def test_qif_for_icicicc(icicicc_data):
-    q = bout.to_qif(icicicc_data, "icicicc",
-                    bout._transform_credits_on_credit_card)
+def test_icici_transaction(mocker, icici_data_row):
+    runner = CliRunner()
+    mocker.patch("tabula.read_pdf").return_value = [icici_data_row]
 
-    expect(q).to.eql("D14/07/2017\nMSome\rDescription\nT-20,724.06"
-                     "\n^\n\n")
+    result = runner.invoke(bout.start, [".", "--profile", "icici"])
+
+    assert result.exception is None
+    assert result.exit_code == 0
+    assert result.output == "D10/07/2017\nMSomeDescription\nT-20000.0\n"\
+                            "^\n\n\n"
 
 
-def test_qif_for_icicicc_credit_transaction(icicicc_data):
-    icicicc_data[6] = "20,724.06 CR"
+def test_icicicc_transaction_output_qif(mocker, icicicc_data_row):
+    runner = CliRunner()
+    mocker.patch("tabula.read_pdf").return_value = [icicicc_data_row]
 
-    q = bout.to_qif(icicicc_data, "icicicc",
-                    bout._transform_credits_on_credit_card)
+    result = runner.invoke(bout.start, [".", "--profile", "icicicc"])
 
-    expect(q).to.eql("D14/07/2017\nMSome\rDescription\nT20,724.06"
-                     "\n^\n\n")
+    assert result.exception is None
+    assert result.exit_code == 0
+    assert result.output == "D14/07/2017\nMSome\rDescription\nT-20,724.06"\
+                            "\n^\n\n\n"
+
+
+def test_icicicc_transaction_credit_output_qif(mocker, icicicc_data_row):
+    icicicc_data_row["data"][0][6]["text"] = "20,724.06 CR"
+    runner = CliRunner()
+    mocker.patch("tabula.read_pdf").return_value = [icicicc_data_row]
+
+    result = runner.invoke(bout.start, [".", "--profile", "icicicc"])
+
+    assert result.output == "D14/07/2017\nMSome\rDescription\nT20,724.06"\
+                            "\n^\n\n\n"
+
+
+def test_icicicc_transaction_skips_extra_data(mocker, icicicc_data_row):
+    icicicc_data_row["data"][0][0]["text"] = "invalid_date"
+    runner = CliRunner()
+    mocker.patch("tabula.read_pdf").return_value = [icicicc_data_row]
+
+    result = runner.invoke(bout.start, [".", "--profile", "icicicc"])
+
+    assert result.exception is None
+    assert result.exit_code == 0
+    assert not result.output
+
+
+def test_option_debug_configures_logging(mocker, icici_data_row, caplog):
+    runner = CliRunner()
+    mocker.patch("tabula.read_pdf").return_value = [icici_data_row]
+
+    result = runner.invoke(bout.start, [".", "--debug", "--profile", "icici"])
+
+    debug = ("bout", logging.INFO, "Verbose messages are enabled.")
+    assert result.exception is None
+    assert result.exit_code is 0
+    assert debug in caplog.record_tuples

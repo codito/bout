@@ -13,49 +13,66 @@
 (_)(_)(_)(_)     (_)(_)(_)     (_)(_)(_) (_)   (_)(_)
 
 """
+import itertools
 import logging
 import click
 import tabula
+from collections import namedtuple
 from datetime import datetime
 from functools import reduce
 
 logger = logging.getLogger("bout")
 
-
-def _filter_zero_data(data):
-    width = data.get("width", 0.0)
-    inner_data = data.get("data", [])
-
-    return None if width == 0.0 and len(inner_data) == 0 else data
+profiles = {}
+Transaction = namedtuple("Transaction",
+                         ["date", "payee", "memo", "amount"])
+InvalidTransaction = namedtuple("InvalidTransaction", [])
 
 
-def _filter_zero_text(data):
-    width = data.get("width", 0.0)
-    text = data.get("text", "")
+def get_icici(data_row):
+    """Convert a transaction row to a transaction tuple.
 
-    return None if width == 0.0 and text == "" else data
-
-
-def _filter_transactions(clean_row, date_field):
-    """Filter cleaned up rows to transactions."""
-    # Apply mandatory field filters
-    try:
-        transaction_date = datetime.strptime(clean_row[date_field], "%d/%m/%Y")
-        if transaction_date is not None:
-            return clean_row
-    except ValueError:
-        return None
-
-
-def _transform_credits_on_credit_card(key, text):
-    if key == "T-" and text.endswith(" CR"):
-        text = text.split(" ")[0]
-        key = "T"
-    return key, text
+    Details of fields
+        2: 'D',     # Transaction date
+        3: 'N',     # Cheque number
+        4: 'M',     # Transaction details
+        5: 'T-',    # Withdrawal
+        6: 'T'      # Deposit
+    """
+    logger.debug("get_icici: Data row = {}".format(data_row))
+    if _valid_date(data_row[2]):
+        amt = "-{}".format(data_row[5])
+        if data_row[6] != "0.0":
+            amt = data_row[6]
+        return Transaction(date=data_row[2],
+                           payee="",      # Empty for ICICI bank account
+                           memo=data_row[4],
+                           amount=amt)
+    return InvalidTransaction()
 
 
-def clean(row, profile):
-    """Filter cleans a row.
+def get_icicicc(data_row):
+    """Convert a transaction row to a transaction tuple.
+
+    Details of fields
+        0: 'D',     # Transaction date
+        2: 'M',     # Transaction details
+        6: 'T-',    # Withdrawal
+    """
+    logger.debug("get_icicicc: Data row = {}".format(data_row))
+    if _valid_date(data_row[0]):
+        amt = data_row[6]
+        if amt.endswith(" CR"):
+            amt = data_row[6].split(" ")[0]
+        return Transaction(date=data_row[0],
+                           payee="",      # Empty for ICICI bank account
+                           memo=data_row[2],
+                           amount=amt)
+    return InvalidTransaction()
+
+
+def clean(row):
+    """Clean a parsed data row.
 
     Multiple lines in a row are merged together.
     Column values which have no text and zero width are ignored.
@@ -81,37 +98,29 @@ def clean(row, profile):
         ]
     """
     logger.debug("clean: Input row = {}".format(row))
-    clean_row = {}
     if _filter_zero_data(row) is None:
         # Malformed row, skip
         logger.debug("clean: Malformed row")
-        return clean_row
+        return []
 
-    # Stream mode: handle multiple lines
-    if profile == "icici":
-        for line in row['data']:
-            index = 0
-            for cell in line:
-                if _filter_zero_text(cell) is not None:
-                    clean_row[index] = clean_row.get(index, '') + cell['text']
-                index += 1
-        logger.debug("clean: Output row = {}".format(clean_row))
-        yield clean_row
-    elif profile == "icicicc":
-        # Lattice mode: multiple lines are already handled
-        for line in row['data']:
-            index = 0
-            clean_row = {}
-            for cell in line:
-                clean_row[index] = cell['text']
-                index += 1
-            # if _filter_transactions(clean_row, 0) is not None:
-                # logger.debug("clean: Output row = {}".format(clean_row))
-                # yield clean_row
-            yield clean_row
+    lines = [[d['text'] for d in l] for l in row['data']]
+    mode = row["extraction_method"]
+
+    # Lattice mode: multiple lines are already handled
+    if mode == "lattice":
+        return lines
+
+    # Stream mode: merge multiple lines together
+    if mode == "stream":
+        def merge_dict(d1, d2):
+            return ["{}{}".format(d1[i], d2[i]) for i in range(len(d1))]
+        merged_line = reduce(merge_dict, lines)
+
+        # remove entries which have empty data!
+        return [[v for v in merged_line if v]]
 
 
-def to_qif(row, profile, transform):
+def to_qif(transaction):
     """Transform a cleaned up row to qif format.
 
     Returns:
@@ -121,27 +130,32 @@ def to_qif(row, profile, transform):
     https://en.wikipedia.org/wiki/Quicken_Interchange_Format#Detail_items
 
     """
-    qif = ''
-    if profile == 'icici':
-        field_map = {
-            2: 'D',     # Transaction date
-            3: 'N',     # Cheque number
-            4: 'M',     # Transaction details
-            5: 'T-',    # Withdrawal
-            6: 'T'      # Deposit
-        }
-    elif profile == 'icicicc':
-        field_map = {
-            0: 'D',     # Transaction date
-            2: 'M',     # Transaction details
-            6: 'T-',    # Withdrawal
-        }
+    logger.debug("to_qif: Input = {}".format(transaction))
+    return "D{0}\nM{1}\nT{2}\n^\n\n"\
+        .format(transaction.date, transaction.memo, transaction.amount)
 
-    qif = reduce(lambda x, k: x + "{0}{1}\n".format(k[0], k[1]),
-                 (transform(v, row[k]) for k, v in field_map.items()),
-                 "")
-    qif += '^\n\n'
-    return qif
+
+def _filter_zero_data(data):
+    width = data.get("width", 0.0)
+    inner_data = data.get("data", [])
+
+    return None if width == 0.0 and len(inner_data) == 0 else data
+
+
+def _filter_zero_text(data):
+    width = data.get("width", 0.0)
+    text = data.get("text", "")
+
+    return None if width == 0.0 and text == "" else data
+
+
+def _valid_date(date_value):
+    """Validate a transaction date."""
+    try:
+        transaction_date = datetime.strptime(date_value, "%d/%m/%Y")
+        return transaction_date is not None
+    except ValueError:
+        return False
 
 
 @click.command()
@@ -163,10 +177,20 @@ def start(doc, password, profile, debug):
                          password=passval, lattice=lattice)
     if debug:
         logging.basicConfig(level=logging.DEBUG)
+        logger.info("Verbose messages are enabled.")
 
-    for row in df:
-        for r in clean(row, profile):
-            click.echo(to_qif(r, profile, _transform_credits_on_credit_card))
+    profiles.update({"icici": get_icici, "icicicc": get_icicicc})
+
+    # row -> clean_row
+    # clean_row, profile -> transaction
+    # transaction -> qif
+    # x = (j for i in map(clean, df) for j in i)
+    # x = (i for i in map(clean, df))
+    create_transaction = profiles[profile]
+    for r in itertools.chain.from_iterable(map(clean, df)):
+        transaction = create_transaction(r)
+        if type(transaction) is not InvalidTransaction:
+            click.echo(to_qif(transaction))
 
 
 if __name__ == '__main__':
