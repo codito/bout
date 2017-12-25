@@ -61,7 +61,7 @@ def get_icicicc(data_row):
     """
     logger.debug("get_icicicc: Data row = {}".format(data_row))
     if _valid_date(data_row[0]):
-        amt = data_row[6]
+        amt = "-{}".format(data_row[6])
         if amt.endswith(" CR"):
             amt = data_row[6].split(" ")[0]
         return Transaction(date=data_row[0],
@@ -184,8 +184,6 @@ def start(doc, password, profile, debug):
     # row -> clean_row
     # clean_row, profile -> transaction
     # transaction -> qif
-    # x = (j for i in map(clean, df) for j in i)
-    # x = (i for i in map(clean, df))
     create_transaction = profiles[profile]
     for r in itertools.chain.from_iterable(map(clean, df)):
         transaction = create_transaction(r)

@@ -32,6 +32,7 @@ def icicicc_data_row():
     data = ["14/07/2017", "74143617199000258114409",
             "Some\rDescription", "414", "", "", "20,724.06"]
     r = row()
+    r["extraction_method"] = "lattice"
     r["data"].append([_get_cell(x) for x in data])
     return r
 
