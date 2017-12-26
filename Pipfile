@@ -11,6 +11,7 @@ verify_ssl = true
 pytest = "*"
 pytest-cov = "*"
 pytest-mock = "*"
+"flake8-putty" = "*"
 
 
 [packages]
