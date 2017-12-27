@@ -8,7 +8,7 @@ verify_ssl = true
 
 "flake8" = "*"
 "flake8-docstrings" = "*"
-"flake8-putty" = "*"
+"flake8-per-file-ignores" = "*"
 pytest = "*"
 pytest-cov = "*"
 pytest-mock = "*"
