@@ -94,10 +94,25 @@ def test_icici_transaction(mocker, icici_data_row):
 
     result = runner.invoke(bout.start, [".", "--profile", "icici"])
 
+    o = "D10/07/2017\nMSomeDescription\nT-20000.0\n^\n\n\n"
     assert result.exception is None
     assert result.exit_code == 0
-    assert result.output == "D10/07/2017\nMSomeDescription\nT-20000.0\n"\
-                            "^\n\n\n"
+    assert o in result.output
+
+
+def test_icici_transaction_special_chars(mocker, icici_data_row):
+    extra_row = {'top': 8.85, 'left': 5.01, 'width': 9.32, 'height': 6.63,
+                 'text': '/2017/0'}
+    icici_data_row["data"][0].insert(5, extra_row)
+    runner = CliRunner()
+    mocker.patch("tabula.read_pdf").return_value = [icici_data_row]
+
+    result = runner.invoke(bout.start, [".", "--profile", "icici"])
+
+    o = "D10/07/2017\nMSomeDescription /2017/0\nT-20000.0\n^\n\n\n"
+    assert result.exception is None
+    assert result.exit_code == 0
+    assert o in result.output
 
 
 def test_icicicc_transaction_output_qif(mocker, icicicc_data_row):
@@ -106,10 +121,10 @@ def test_icicicc_transaction_output_qif(mocker, icicicc_data_row):
 
     result = runner.invoke(bout.start, [".", "--profile", "icicicc"])
 
+    o = "D14/07/2017\nMSome\rDescription\nT-20,724.06\n^\n\n\n"
     assert result.exception is None
     assert result.exit_code == 0
-    assert result.output == "D14/07/2017\nMSome\rDescription\nT-20,724.06"\
-                            "\n^\n\n\n"
+    assert o in result.output
 
 
 def test_icicicc_transaction_credit_output_qif(mocker, icicicc_data_row):
@@ -119,8 +134,8 @@ def test_icicicc_transaction_credit_output_qif(mocker, icicicc_data_row):
 
     result = runner.invoke(bout.start, [".", "--profile", "icicicc"])
 
-    assert result.output == "D14/07/2017\nMSome\rDescription\nT20,724.06"\
-                            "\n^\n\n\n"
+    o = "D14/07/2017\nMSome\rDescription\nT20,724.06\n^\n\n\n"
+    assert o in result.output
 
 
 def test_icicicc_transaction_skips_extra_data(mocker, icicicc_data_row):
@@ -133,6 +148,17 @@ def test_icicicc_transaction_skips_extra_data(mocker, icicicc_data_row):
     assert result.exception is None
     assert result.exit_code == 0
     assert not result.output
+
+
+def test_transaction_output_qif_header(mocker, icicicc_data_row):
+    runner = CliRunner()
+    mocker.patch("tabula.read_pdf").return_value = [icicicc_data_row]
+
+    result = runner.invoke(bout.start, [".", "--profile", "icicicc"])
+
+    assert result.exception is None
+    assert result.exit_code == 0
+    assert "!Account\nNMyAccount\nTMyBank\n^\n!Type:Bank\n" in result.output
 
 
 def test_option_debug_configures_logging(mocker, icici_data_row, caplog):

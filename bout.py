@@ -36,17 +36,19 @@ def get_icici(data_row):
         2: 'D',     # Transaction date
         3: 'N',     # Cheque number
         4: 'M',     # Transaction details
+        x: x,       # Extra columns (occasional)
         5: 'T-',    # Withdrawal
         6: 'T'      # Deposit
     """
     logger.debug("get_icici: Data row = {}".format(data_row))
+    columns = len(data_row)
     if _valid_date(data_row[2]):
-        amt = "-{}".format(data_row[5])
-        if data_row[6] != "0.0":
-            amt = data_row[6]
+        amt = "-{}".format(data_row[-3])
+        if data_row[-2] != "0.0":
+            amt = data_row[-2]
         return Transaction(date=data_row[2],
                            payee="",      # Empty for ICICI bank account
-                           memo=data_row[4],
+                           memo=" ".join(data_row[4:columns-3]),
                            amount=amt)
     return InvalidTransaction()
 
@@ -120,6 +122,11 @@ def clean(row):
         return [[v for v in merged_line if v]]
 
 
+def qif_header():
+    """Print qif header."""
+    click.echo("!Account\nNMyAccount\nTMyBank\n^\n!Type:Bank")
+
+
 def to_qif(transaction):
     """Transform a cleaned up row to qif format.
 
@@ -185,9 +192,13 @@ def start(doc, password, profile, debug):
     # clean_row, profile -> transaction
     # transaction -> qif
     create_transaction = profiles[profile]
+    print_header = False
     for r in itertools.chain.from_iterable(map(clean, df)):
         transaction = create_transaction(r)
         if type(transaction) is not InvalidTransaction:
+            if not print_header:
+                qif_header()
+                print_header = True
             click.echo(to_qif(transaction))
 
 
