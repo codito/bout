@@ -7,12 +7,12 @@ python:
 
 install:
   - pip install pipenv
+  - pip install codecov
   - pipenv install --dev
-  - pipenv install codecov --dev
 
 script:
   - pipenv run flake8 *.py
   - pipenv run pytest
 
-after_success: pipenv run codecov
+after_success: codecov
 
