@@ -15,7 +15,7 @@ DESCRIPTION = "Parse and liberate data from pdf based bank statements."
 URL = "https://github.com/codito/bout"
 EMAIL = "arun@codito.in"
 AUTHOR = "Arun Mahapatra"
-VERSION = (1, 0, 0)
+VERSION = (1, 0, 1)
 
 # Dependencies required for execution
 REQUIRED = [
@@ -82,7 +82,7 @@ setup(
     py_modules=["bout"],
 
     entry_points={
-        "console_scripts": ["boutcli=bout:start"],
+        "console_scripts": ["bout=bout:start"],
     },
     install_requires=REQUIRED,
     include_package_data=True,

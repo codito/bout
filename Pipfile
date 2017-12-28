@@ -12,6 +12,7 @@ verify_ssl = true
 pytest = "*"
 pytest-cov = "*"
 pytest-mock = "*"
+twine = "*"
 
 
 [packages]
