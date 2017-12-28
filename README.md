@@ -1,4 +1,4 @@
-# Bout `1.0.0`
+# Bout
 Parse bank statements (pdf) and export them to qif format.
 
 [![Linux Build Status](https://img.shields.io/travis/codito/bout.svg)](https://travis-ci.org/codito/bout)
