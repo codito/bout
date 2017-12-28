@@ -16,5 +16,4 @@ pytest-mock = "*"
 
 [packages]
 
-tabula-py = "*"
-click = "*"
+"a346aa4" = {path = ".", editable = true}
