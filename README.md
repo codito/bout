@@ -14,6 +14,11 @@ most welcome for adding support for another bank. Create an
 
     pip install bout
 
+Arch Linux may use the `bout` package from
+[AUR](https://aur.archlinux.org/packages/bout/).
+
+    yaourt -S bout
+
 # Usage
 
     $ # convert an ICICI statement to qif
