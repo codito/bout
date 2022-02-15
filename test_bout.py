@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# TODO these tests need to be updated for csv parser.
 
 """Tests for bout."""
 import logging
