@@ -11,15 +11,15 @@ from setuptools import setup, Command
 
 # Package meta-data.
 NAME = "bout"
-DESCRIPTION = "Parse and liberate data from pdf based bank statements."
+DESCRIPTION = "Parse and liberate data from csv based bank statements."
 URL = "https://github.com/codito/bout"
 EMAIL = "arun@codito.in"
 AUTHOR = "Arun Mahapatra"
-VERSION = (1, 0, 1)
+VERSION = (1, 0, 2)
 
 # Dependencies required for execution
 REQUIRED = [
-    "click>=6.7", "tabula-py>=1.0.0"
+    "click>=6.7"
 ]
 
 here = os.path.abspath(os.path.dirname(__file__))
