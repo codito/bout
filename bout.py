@@ -38,11 +38,10 @@ def get_icici_csv(data_row):
         4: 'T-',    # Withdrawal
     """
     logger.debug("get_icicicsv: Data row = {}".format(data_row))
-    columns = len(data_row)
     date = data_row[0].replace('-', '/')
     if _valid_date(date):
         amt = "-{}".format(data_row[4])
-        if data_row[3] != 0.0:
+        if data_row[3] != "0":
             amt = data_row[3]
         return Transaction(id=0,
                            date=date,
@@ -62,7 +61,6 @@ def get_icicicc_csv(data_row):
     """
     logger.debug("get_icicicsv: Data row = {}".format(data_row))
     date = data_row[0]
-    columns = len(data_row)
     if _valid_date(date, date_format="%d/%m/%Y"):
         amt = "-{}".format(data_row[5])
         if data_row[6] == "CR":
